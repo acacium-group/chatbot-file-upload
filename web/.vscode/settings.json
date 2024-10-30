@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/f5765ecb-f30f-4726-bc5f-e3b8d6ce48bf/resourceGroups/automation/providers/Microsoft.Web/sites/chatbotupload",
+    "appService.deploySubpath": "."
+}
