@@ -29,7 +29,27 @@
     <!-- Placeholder for the web chat interface -->
     <div id="webchat"></div>
 
+    <!-- Add Start Chat button -->
+    <button id="startChatButton">Start Chat</button>
+
     <script>
+      // Helper function to fetch JSON data from a specified URL with optional configurations
+      async function fetchJSON(url, options = {}) {
+        const res = await fetch(url, {
+          ...options,
+          headers: {
+            ...options.headers,
+            accept: "application/json"
+          }
+        });
+
+        if (!res.ok) {
+          console.error(`Failed to fetch JSON from ${url} - Status: ${res.status}`);
+          throw new Error(`Failed to fetch JSON due to ${res.status}`);
+        }
+
+        return await res.json();
+      }
 
       function hideUploadButton() {
         const uploadButton = document.querySelector('.webchat__upload-button');
@@ -44,83 +64,39 @@
           uploadButton.style.display = 'block';
         }
       }
-      
-      // Default message in case geolocation is not supported
-      var locString = "Browser does not support geolocation";
-
-      // Helper function to fetch JSON data from a specified URL with optional configurations
-      async function fetchJSON(url, options = {}) {
-        // console.log(`Requesting URL: ${url}`); // Log URL being fetched
-        const res = await fetch(url, {
-          ...options,
-          headers: {
-            ...options.headers,
-            accept: "application/json"
-          }
-        });
-
-        // Check response status and throw error if request failed
-        if (!res.ok) {
-          console.error(`Failed to fetch JSON from ${url} - Status: ${res.status}`);
-          throw new Error(`Failed to fetch JSON due to ${res.status}`);
-        }
-
-        // Return JSON response if successful
-        return await res.json();
-      }
-
-      // Import Azure Blob Storage functions for file upload operations
-      const { Aborter, AnonymousCredential, BlockBlobURL, StorageURL, uploadBrowserDataToBlockBlob } = window.azblob;
-
-      // Geolocation success callback - update locString with coordinates
-      function showPosition(position) {
-        locString = position.coords.latitude + " " + position.coords.longitude;
-      }
-
-      // Geolocation error callback - display error message
-      function erroring(err) {
-        alert(err);
-      }
 
       // Function to upload a file to Azure Storage using a secure SAS token
       async function uploadFile({ name, url }) {
-        // console.log(`Fetching file from URL: ${url}`); // Log file URL being fetched
         const res = await fetch(url);
 
-        // Check if file fetch was successful
         if (!res.ok) {
           console.error(`Failed to obtain ArrayBuffer from ${url}`);
           throw new Error("Cannot obtain ArrayBuffer to upload file");
         }
 
-        const metadata = { "x-ms-meta-name": name }; // Metadata for blob
-        const extension = name.substring(name.lastIndexOf(".")); // Extract file extension
+        const metadata = { "x-ms-meta-name": name };
+        const extension = name.substring(name.lastIndexOf("."));
 
         // Request SAS token from server, passing file extension
-        // console.log("Requesting SAS token from /api/azurestorage/uploadsastoken");
         const { sasQuery, url: uploadURL } = await fetchJSON(`/api/azurestorage/uploadsastoken?extension=${encodeURIComponent(extension)}`);
-        // console.log(`Received SAS token and upload URL: ${uploadURL}`);
 
         // Create pipeline and blob URL for file upload
-        const pipeline = StorageURL.newPipeline(new AnonymousCredential());
-        const blockBlobURL = new BlockBlobURL(`${uploadURL}?${sasQuery}`, pipeline);
+        const pipeline = azblob.StorageURL.newPipeline(new azblob.AnonymousCredential());
+        const blockBlobURL = new azblob.BlockBlobURL(`${uploadURL}?${sasQuery}`, pipeline);
 
         // Upload file data using the SAS token
-        // console.log(`Uploading file to URL: ${blockBlobURL.url}`);
-        const result = await uploadBrowserDataToBlockBlob(Aborter.none, await res.arrayBuffer(), blockBlobURL);
+        await azblob.uploadBrowserDataToBlockBlob(azblob.Aborter.none, await res.arrayBuffer(), blockBlobURL);
 
-        // console.log(`File uploaded successfully to: ${uploadURL}`);
         return uploadURL; // Return blob URL upon successful upload
       }
 
-      // Main function to initialize web chat and handle geolocation
-      (async function main() {
-        // Create WebChat store with middleware to intercept actions
+      // Function to initialize Web Chat
+      async function initializeWebChat() {
+        
         const store = WebChat.createStore({}, ({ dispatch }) => (next) => (action) => {
           const { type } = action;
 
-          // Send initial message to bot on connection
-          if (action.type === "DIRECT_LINE/CONNECT_FULFILLED") {
+          if (type === "DIRECT_LINE/CONNECT_FULFILLED") {
             dispatch({
               type: "WEB_CHAT/SEND_EVENT",
               payload: {
@@ -132,22 +108,18 @@
 
             hideUploadButton();
             return next(action);
-          } 
-          // Handle file upload actions
-          else if (type === "WEB_CHAT/SEND_FILES") {
+          } else if (type === "WEB_CHAT/SEND_FILES") {
             (async function () {
-              dispatch({ type: "WEB_CHAT/SEND_TYPING" }); // Show typing indicator
+              dispatch({ type: "WEB_CHAT/SEND_TYPING" });
 
-              const allowedExtensions = [".pdf", ".doc", ".docx"]; // Allowed file extensions
-              const fileNames = action.payload.files.map((file) => file.name); // Capture file names
+              const allowedExtensions = [".pdf", ".doc", ".docx"];
+              const fileNames = action.payload.files.map((file) => file.name);
 
-              // Filter files to only include allowed extensions
               const validFiles = action.payload.files.filter((file) => {
                 const extension = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
                 return allowedExtensions.includes(extension);
               });
 
-              // If more than one file, send warning message
               if (fileNames.length > 1) {
                 dispatch({
                   type: "DIRECT_LINE/INCOMING_ACTIVITY",
@@ -160,27 +132,22 @@
                     }
                   }
                 });
-                
-              } 
-              // If no valid files, send error message
-              else if (validFiles.length === 0) {
+              } else if (validFiles.length === 0) {
                 dispatch({
                   type: "DIRECT_LINE/INCOMING_ACTIVITY",
                   payload: {
                     activity: {
                       from: { id: "bot", name: "Agent" },
                       type: "message",
-                      text: "You have selected an invalid file type. Only PDF, DOC, and DOCX files are allowed. Please try re-uploading your CV.",
+                      text: "Invalid file type. Only PDF, DOC, and DOCX files are allowed.",
                       id: Math.random().toString(36).substr(2)
                     }
                   }
                 });
-                
-              } 
-              // Proceed with file upload if valid
-              else {
-                const files = await Promise.all(action.payload.files.map(({ name, url }) => uploadFile({ name, url })));
-                // console.log(`Files uploaded: ${files}`);
+              } else {
+                const files = await Promise.all(
+                  action.payload.files.map(({ name, url }) => uploadFile({ name, url }))
+                );
 
                 hideUploadButton();
 
@@ -191,12 +158,12 @@
                   payload: {
                     name: "ChatbotUploadEvent",
                     type: "event",
-                    value: fileNames[0] + "|" + blobFullName // Send file metadata to bot
+                    value: `${fileNames[0]}|${blobFullName}`
                   }
                 });
               }
             })().catch((err) => console.error(err));
-          } else if (action.type === "DIRECT_LINE/INCOMING_ACTIVITY" && action.payload.activity.name === "showUploadButton" ) {
+          } else if (type === "DIRECT_LINE/INCOMING_ACTIVITY" && action.payload.activity.name === "showUploadButton") {
             showUploadButton();
             return next(action);
           } else {
@@ -204,11 +171,7 @@
           }
         });
 
-        // console.log("Requesting Direct Line token from /api/directline/token");
-        const { token } = await fetchJSON("/api/directline/token"); // Obtain Direct Line token
-        // console.log("Received Direct Line token");
-
-        // Render Web Chat interface with token and store
+        const { token } = await fetchJSON("/api/directline/token");
         WebChat.renderWebChat(
           {
             directLine: WebChat.createDirectLine({ token }),
@@ -219,9 +182,14 @@
           },
           document.getElementById("webchat")
         );
-        
+      }
 
-      })().catch((err) => console.error(err)); // Catch any errors in main function
+      // Attach event listener to Start Chat button
+      document.getElementById("startChatButton").addEventListener("click", () => {
+        // Hide the Start Chat button
+        document.getElementById("startChatButton").style.display = "none";
+        initializeWebChat().catch((err) => console.error(err));
+      });
     </script>
   </body>
 </html>
