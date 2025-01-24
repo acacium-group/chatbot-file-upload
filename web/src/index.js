@@ -3,7 +3,7 @@ require('dotenv').config();
 // Setting default environment variables.
 // Use the Azure-provided PORT if available, fallback to 5000 for local development.
 process.env = {
-  AZURE_STORAGE_CONTAINER_NAME: 'hobson-prior-files',
+  AZURE_STORAGE_CONTAINER_NAME: 'hobsonprioruploads',
   PORT: process.env.PORT || '5000',  // Use Azure's PORT or fallback to 5000 for local
   STATIC_FILES: 'public',  // Make sure this matches the location of your public folder
   ...process.env
