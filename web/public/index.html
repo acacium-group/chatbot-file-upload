@@ -5,8 +5,8 @@
     <link rel="shortcut icon" href="/images/BotServices.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
-    <title>Web Chat Upload to Azure Storage Demo</title>
-
+    <title>Web Chat Upload to Azure Storage Demo</title>    
+    
     <!-- Load Bot Framework Web Chat script for embedding web chat interface -->
     <script
       crossorigin="anonymous"
@@ -207,15 +207,17 @@
         // console.log("Requesting Direct Line token from /api/directline/token");
         const { token } = await fetchJSON("/api/directline/token"); // Obtain Direct Line token
         // console.log("Received Direct Line token");
-
+        const styleOptions = {
+          suggestedActionLayout: 'stacked',
+          suggestedActionsStackedLayoutButtonTextWrap: true,
+          backgroundColor: 'rgba(255, 255, 255, .8)'
+        };  
         // Render Web Chat interface with token and store
         WebChat.renderWebChat(
           {
             directLine: WebChat.createDirectLine({ token }),
             store,
-            styleOptions: {
-              backgroundColor: "rgba(255, 255, 255, .8)"
-            }
+            styleOptions
           },
           document.getElementById("webchat")
         );
