@@ -208,9 +208,10 @@
         const { token } = await fetchJSON("/api/directline/token"); // Obtain Direct Line token
         // console.log("Received Direct Line token");
         const styleOptions = {
-          suggestedActionLayout: 'stacked',
-          suggestedActionsStackedLayoutButtonTextWrap: true,
-          backgroundColor: 'rgba(255, 255, 255, .8)'
+          backgroundColor: "rgba(255, 255, 255, .8)",
+          suggestedActionLayout: "stacked", // Stack buttons vertically
+          suggestedActionHeight: "auto", // Auto height adjustment
+          suggestedActionTextWrap: true
         };  
         // Render Web Chat interface with token and store
         WebChat.renderWebChat(
