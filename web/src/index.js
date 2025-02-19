@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { AZURE_STORAGE_CONTAINER_NAME } = process.env;
 
-// Setting default environment variables.
+// Setting default environment variables
 // Use the Azure-provided PORT if available, fallback to 5000 for local development.
 process.env = {
   AZURE_STORAGE_CONTAINER_NAME: AZURE_STORAGE_CONTAINER_NAME,
