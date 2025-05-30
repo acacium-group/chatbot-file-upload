@@ -5,8 +5,7 @@
     <link rel="shortcut icon" href="/images/BotServices.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
-    <title>Web Chat Upload to Azure Storage Demo</title>    
-    
+    <title>Chatbot</title>        
     <!-- Load Bot Framework Web Chat script for embedding web chat interface -->
     <script
       crossorigin="anonymous"
@@ -19,7 +18,8 @@
       src="https://unpkg.com/@azure/storage-blob@10.3.0/browser/azure-storage.blob.min.js"
       integrity="sha384-fsfhtLyVQo3L3Bh73qgQoRR328xEeXnRGdoi53kjo1uectCfAHFfavrBBN2Nkbdf"
       crossorigin="anonymous"
-    ></script>
+    ></script>   
+
   </head>
 
   <body>
@@ -108,7 +108,7 @@
         // Upload file data using the SAS token
         // console.log(`Uploading file to URL: ${blockBlobURL.url}`);
         const result = await uploadBrowserDataToBlockBlob(Aborter.none, await res.arrayBuffer(), blockBlobURL);
-
+        
         // console.log(`File uploaded successfully to: ${uploadURL}`);
         return uploadURL; // Return blob URL upon successful upload
       }
@@ -118,15 +118,15 @@
         // Create WebChat store with middleware to intercept actions
         const store = WebChat.createStore({}, ({ dispatch }) => (next) => (action) => {
           const { type } = action;
-
           // Send initial message to bot on connection
-          if (action.type === "DIRECT_LINE/CONNECT_FULFILLED") {
+          if (action.type === "DIRECT_LINE/CONNECT_FULFILLED" && firstLoad === "true") {
             dispatch({
               type: "WEB_CHAT/SEND_EVENT",
               payload: {
                 name: "startConversation",
                 type: "event",
-                value: { text: "hello" }
+                value: { text: "hello", skipIntro: source, UserID: userId, websitefullurl: websitefullurl, utm_source: utm_source, utm_medium: utm_medium, utm_campaign: utm_campaign, utm_content: utm_content }
+                
               }
             });
 
@@ -185,7 +185,6 @@
                 hideUploadButton();
 
                 const blobFullName = files[0].substring(files[0].lastIndexOf("/") + 1);
-
                 dispatch({
                   type: "WEB_CHAT/SEND_EVENT",
                   payload: {
@@ -203,7 +202,8 @@
             return next(action);
           }
         });
-
+        
+        
         // console.log("Requesting Direct Line token from /api/directline/token")l;
         const { token } = await fetchJSON("/api/directline/token"); // Obtain Direct Line token
         // console.log("Received Direct Line token");
@@ -213,16 +213,38 @@
           suggestedActionHeight: "auto", // Auto height adjustment
           suggestedActionTextWrap: true
         };  
-        // Render Web Chat interface with token and store
-        WebChat.renderWebChat(
-          {
-            directLine: WebChat.createDirectLine({ token }),
-            store,
-            styleOptions
-          },
-          document.getElementById("webchat")
-        );
-        
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const source = urlParams.get('skipIntro'); // This is from the URL
+        const userId = urlParams.get('UserID');
+        const firstLoad = "true";
+        const websitefullurl = urlParams.get('websitefullurl');
+        const utm_source = urlParams.get('utm_source');
+        const utm_medium = urlParams.get('utm_medium');
+        const utm_campaign = urlParams.get('utm_campaign');
+        const utm_content = urlParams.get('utm_content');
+
+        WebChat.renderWebChat({
+          directLine: WebChat.createDirectLine({ token }),
+          store,
+          styleOptions   
+        }, document.getElementById("webchat"));
+
+        // Inject style overrides for Web Chat after render
+        const injectCustomStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = `
+          .webchat__suggested-action {
+            display: block !important;
+            overflow: visible !important;
+            white-space: normal !important;
+          }
+        `;
+        document.head.appendChild(style);
+      };
+
+        // Delay style injection slightly to ensure the DOM is ready
+        setTimeout(injectCustomStyles, 500);
 
       })().catch((err) => console.error(err)); // Catch any errors in main function
     </script>
